@@ -277,8 +277,8 @@ On 2026-09-29, against a live instance (`https://documenso.unheld.io`) and [docu
 |---|---|---|
 | Claude (claude.ai) | Confidential client, `client_secret_post` | Consent, tool calls, cross-team refusal |
 | ChatGPT | Public client, `none` (PKCE only) | Consent, tool calls, cross-team refusal |
-| Claude Code | Public client with a loopback redirect on a random port | Consent, tool calls, revocation from Connected apps |
-| mcp-use Inspector | Public client | Consent and tool calls |
+| Claude Code | Loopback redirect on a random port (`http://localhost:50365`), accepted by the loopback rule | Consent, tool calls, revocation from Connected apps |
+| mcp-use Inspector | Public client, `none` | Consent and tool calls |
 
 Claude.ai defaults to client ID metadata documents; since this server does not advertise them, Claude falls back to dynamic registration without any setting change.
 
