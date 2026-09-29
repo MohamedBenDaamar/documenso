@@ -269,13 +269,25 @@ An inactive, expired or revoked token gets `401` with `{"active": false}`. The e
 
 The end-to-end tests need a running instance with `NEXT_PRIVATE_OAUTH_RESOURCES` set; they are skipped otherwise. The CI workflow (`.github/workflows/e2e-tests.yml`) sets it. Run them with `DANGEROUS_BYPASS_RATE_LIMITS=true`, as CI does, or the registration limit trips after a few runs.
 
+### Tested with real MCP hosts
+
+On 2026-09-29, against a live instance (`https://documenso.unheld.io`) and [documenso-mcp](https://github.com/MohamedBenDaamar/documenso-mcp). Screenshots are in its [host-testing notes](https://github.com/MohamedBenDaamar/documenso-mcp/blob/main/docs/host-testing.md).
+
+| Host | Registered as | Result |
+|---|---|---|
+| Claude (claude.ai) | Confidential client, `client_secret_post` | Consent, tool calls, cross-team refusal |
+| ChatGPT | Public client, `none` (PKCE only) | Consent, tool calls, cross-team refusal |
+| Claude Code | Public client with a loopback redirect on a random port | Consent, tool calls, revocation from Connected apps |
+| mcp-use Inspector | Public client | Consent and tool calls |
+
+Claude.ai defaults to client ID metadata documents; since this server does not advertise them, Claude falls back to dynamic registration without any setting change.
+
 ## Limitations
 
 - **The API does not check `aud`.** Documenso issued the token, so `/api/v2` accepts it whichever configured resource it was issued for (within its scopes), much as GitHub's API accepts tokens issued for GitHub's MCP server. `aud` protects resource servers from each other; it does not limit what the token can do at Documenso.
 - **Consent is asked every time.** Approving the same client again creates a second grant; there is no "remember this app".
 - **One team per grant.** To use two teams, connect twice.
 - **Access tokens are opaque.** Resource servers need a `tokeninfo` call (cacheable) instead of verifying a JWT locally. In exchange, revocation is immediate.
-- **Not yet tested from Claude or ChatGPT.** The flow is covered by the end-to-end tests above, which play the client's part. Connecting a real host needs the MCP server side, which is in progress in documenso-mcp.
 - **No client ID metadata documents** ([draft-ietf-oauth-client-id-metadata-document](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)), which newer MCP clients may prefer. Dynamic client registration is implemented instead.
 - **Registered clients are never deleted**, and there is no admin page to list them.
 - **Sub-path deployments** (`NEXT_PUBLIC_BASE_PATH`) serve metadata at `/<base>/.well-known/...` instead of the RFC 8414 location.
