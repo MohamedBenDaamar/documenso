@@ -1,3 +1,11 @@
+> [!NOTE]
+> **This is a fork of [documenso/documenso](https://github.com/documenso/documenso)** that adds an **OAuth 2.1 authorization server**, so AI assistants such as Claude and ChatGPT can connect to a Documenso account in one click, through an MCP server, without copying API tokens.
+>
+> - What it does, how to enable it, its security design and its tests: **[OAUTH.md](OAUTH.md)**
+> - The MCP server that uses it: [documenso-mcp](https://github.com/MohamedBenDaamar/documenso-mcp)
+>
+> Modified by Mohamed Ben Daamar starting 2026-09-29; every change is in this repository's commit history. Everything else is upstream Documenso (based on upstream v2.19.0, commit `b75a66d`), licensed under the [AGPL-3.0](LICENSE) like the original. This fork is not affiliated with or endorsed by Documenso.
+
 <img src="https://github.com/documenso/documenso/assets/13398220/a643571f-0239-46a6-a73e-6bef38d1228b" alt="Documenso Logo">
 
 <p align="center" style="margin-top: 20px">

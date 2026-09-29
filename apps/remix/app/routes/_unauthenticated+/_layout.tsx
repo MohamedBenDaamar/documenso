@@ -1,4 +1,6 @@
 import backgroundPattern from '@documenso/assets/images/background-pattern.png';
+import { SOURCE_CODE_URL } from '@documenso/lib/constants/app';
+import { Trans } from '@lingui/react/macro';
 import { Outlet } from 'react-router';
 
 export default function Layout() {
@@ -21,6 +23,15 @@ export default function Layout() {
           <Outlet />
         </div>
       </div>
+
+      <footer className="relative mt-12 text-center text-muted-foreground text-xs">
+        <Trans>
+          This instance runs a modified version of Documenso.{' '}
+          <a href={SOURCE_CODE_URL} className="underline underline-offset-2" target="_blank" rel="noreferrer">
+            Source code
+          </a>
+        </Trans>
+      </footer>
     </main>
   );
 }

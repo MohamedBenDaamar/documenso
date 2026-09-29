@@ -1,0 +1,80 @@
+---
+title: Connected Apps
+description: Connect AI assistants such as Claude and ChatGPT to a team, and revoke their access.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+Connected apps are applications you allowed to work with one of your teams, such as an AI assistant that lists your documents or sends them for signing. You approve each one on a consent page, and you can revoke it at any time.
+
+<Callout type="info">
+  Connected apps are available when your instance administrator has enabled the OAuth server. See
+  [Environment Variables](/docs/self-hosting/configuration/environment#oauth-server).
+</Callout>
+
+## Connect an App
+
+<Steps>
+<Step>
+
+Start the connection from the application, for example by adding the Documenso connector in Claude or ChatGPT. It opens Documenso in your browser.
+
+</Step>
+<Step>
+
+Sign in to Documenso if you are not signed in already.
+
+</Step>
+<Step>
+
+On the consent page, check the application's name, the server it connects through, and where you will be sent afterwards.
+
+![Consent page](/oauth/consent-page.png)
+
+</Step>
+<Step>
+
+Choose the team the application may use. It can only work with that team.
+
+</Step>
+<Step>
+
+Review what the application will be able to do, then click **Allow access**. Click **Deny** to cancel.
+
+</Step>
+</Steps>
+
+### Permissions
+
+| Permission                                                  | What it allows                                                  |
+| ----------------------------------------------------------- | --------------------------------------------------------------- |
+| View the team's documents, templates and their signing status | List documents and templates and see who has signed             |
+| Create draft documents from the team's templates           | Create drafts; nothing is sent to recipients                    |
+| Send documents to recipients for signing                    | Send documents, which emails the recipients                     |
+
+An application never gets more access than you have. If your role in the team cannot see a document, neither can the application.
+
+<Callout type="warn">
+  Only allow access to applications you trust. The consent page shows where you will be sent after
+  you choose; if you do not recognise it, click **Deny**.
+</Callout>
+
+## View Connected Apps
+
+Go to **Settings**, open the **Security** tab, then click **Manage connected apps**.
+
+![Connected apps](/oauth/connected-apps.png)
+
+| Column      | Description                                        |
+| ----------- | -------------------------------------------------- |
+| Application | The application's name and the server it uses      |
+| Team        | The team the application can work with             |
+| Access      | The permissions you approved                       |
+| Last used   | When the application last used its access, and when you connected it |
+
+## Revoke Access
+
+Click **Revoke** next to the application. It loses access immediately, and has to ask for your approval again to reconnect.
+
+Access also ends automatically when you leave the team or are removed from it.

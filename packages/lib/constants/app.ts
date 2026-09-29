@@ -7,6 +7,12 @@ export const APP_DOCUMENT_UPLOAD_SIZE_LIMIT = Number(env('NEXT_PUBLIC_DOCUMENT_S
 export const NEXT_PUBLIC_WEBAPP_URL = () => env('NEXT_PUBLIC_WEBAPP_URL') ?? 'http://localhost:3000';
 
 /**
+ * Where users of this modified version can get its source code, as AGPL-3.0 section 13 requires for
+ * network use. Shown on the sign-in and consent pages.
+ */
+export const SOURCE_CODE_URL = 'https://github.com/MohamedBenDaamar/documenso';
+
+/**
  * The sub-path the app is served under (no trailing slash), e.g. "/ESign".
  * Returns an empty string when served at root.
  *

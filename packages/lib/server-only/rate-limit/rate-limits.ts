@@ -123,3 +123,32 @@ export const fileUploadRateLimit = createRateLimit({
   max: 20,
   window: '1m',
 });
+
+// ---- OAuth authorization server ----
+
+// Hosts such as Claude and ChatGPT call these from shared server IPs, so the per-IP
+// limits are generous; they exist to stop one client from flooding the tables.
+
+export const oauthRegisterRateLimit = createRateLimit({
+  action: 'oauth.register',
+  max: 60,
+  window: '1h',
+});
+
+export const oauthAuthorizeRateLimit = createRateLimit({
+  action: 'oauth.authorize',
+  max: 120,
+  window: '15m',
+});
+
+export const oauthTokenRateLimit = createRateLimit({
+  action: 'oauth.token',
+  max: 300,
+  window: '1m',
+});
+
+export const oauthTokenInfoRateLimit = createRateLimit({
+  action: 'oauth.tokeninfo',
+  max: 1000,
+  window: '1m',
+});

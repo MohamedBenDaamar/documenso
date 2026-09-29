@@ -1,0 +1,217 @@
+---
+title: OAuth Applications
+description: Let users connect your application or MCP server to their Documenso team with OAuth 2.1 instead of API tokens.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+## Overview
+
+API tokens suit scripts and back-office integrations: an admin creates one and pastes it into your configuration. When each user of your application should connect their own Documenso team, use OAuth instead. The user signs in to Documenso, picks a team, approves the permissions you ask for, and your application receives a token for that team.
+
+Documenso implements OAuth 2.1 as the [MCP authorization specification](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) expects it, so MCP clients such as Claude and ChatGPT can connect through your MCP server without extra configuration:
+
+| Feature                        | Standard |
+| ------------------------------ | -------- |
+| Authorization server metadata  | RFC 8414 |
+| Dynamic client registration    | RFC 7591 |
+| Authorization code with PKCE   | RFC 6749, RFC 7636 (`S256` only) |
+| Resource indicators            | RFC 8707 |
+| Token revocation               | RFC 7009 |
+| Issuer in authorization response | RFC 9207 |
+
+<Callout type="info">
+  The OAuth server is off unless the instance lists your MCP server in `NEXT_PRIVATE_OAUTH_RESOURCES`.
+  See [Environment Variables](/docs/self-hosting/configuration/environment#oauth-server).
+</Callout>
+
+## Scopes
+
+| Scope             | Allows                                                             |
+| ----------------- | ------------------------------------------------------------------ |
+| `envelopes:read`  | `GET /api/v2/envelope`, `GET /api/v2/envelope/{envelopeId}`        |
+| `envelopes:write` | `POST /api/v2/envelope/use` without `distributeDocument`           |
+| `envelopes:send`  | `POST /api/v2/envelope/distribute`, and `POST /api/v2/envelope/use` with `distributeDocument: true` |
+
+- OAuth tokens can call only these endpoints. Every other API v2 endpoint answers `403`, and API v1 answers `401`.
+- Ask only for what you need. Without a `scope` parameter, you get `envelopes:read`.
+- Unknown scopes such as `openid` are ignored. The token response's `scope` lists what was granted.
+- The user's team role still applies: a token never sees a document its user cannot see.
+
+## Connect a User
+
+<Steps>
+<Step>
+
+### Discover the endpoints
+
+```bash
+curl https://app.documenso.example/.well-known/oauth-authorization-server
+```
+
+The response lists `authorization_endpoint`, `token_endpoint`, `registration_endpoint` and `revocation_endpoint`.
+
+</Step>
+<Step>
+
+### Register your client
+
+```bash
+curl -X POST https://app.documenso.example/api/oauth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"client_name": "My assistant", "redirect_uris": ["https://assistant.example.com/callback"]}'
+```
+
+Keep the returned `client_id`. Redirect URIs must be `https`, `http` on a loopback address, or a private-use scheme such as `myapp://callback`. Register with `"token_endpoint_auth_method": "client_secret_post"` to receive a `client_secret` as well.
+
+</Step>
+<Step>
+
+### Send the user to the authorization endpoint
+
+Create a PKCE verifier (43 to 128 random characters) and its `S256` challenge, then open:
+
+```
+https://app.documenso.example/api/oauth/authorize
+  ?response_type=code
+  &client_id=CLIENT_ID
+  &redirect_uri=https://assistant.example.com/callback
+  &code_challenge=CHALLENGE
+  &code_challenge_method=S256
+  &scope=envelopes:read
+  &state=RANDOM_STATE
+  &resource=https://mcp.example.com/mcp
+```
+
+The user signs in, chooses a team and approves. Documenso then redirects to your `redirect_uri` with `code`, `state` and `iss`. Check that `state` is the one you sent.
+
+</Step>
+<Step>
+
+### Exchange the code
+
+```bash
+curl -X POST https://app.documenso.example/api/oauth/token \
+  -d grant_type=authorization_code \
+  -d client_id=CLIENT_ID \
+  -d code=CODE \
+  -d code_verifier=VERIFIER \
+  -d redirect_uri=https://assistant.example.com/callback \
+  -d resource=https://mcp.example.com/mcp
+```
+
+```json
+{
+  "access_token": "doa_...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "dor_...",
+  "scope": "envelopes:read"
+}
+```
+
+</Step>
+<Step>
+
+### Call the API
+
+```bash
+curl https://app.documenso.example/api/v2/envelope \
+  -H 'Authorization: Bearer doa_...'
+```
+
+The token works only for the team the user chose.
+
+</Step>
+</Steps>
+
+## Refresh Tokens
+
+Access tokens last one hour. Exchange the refresh token for a new pair:
+
+```bash
+curl -X POST https://app.documenso.example/api/oauth/token \
+  -d grant_type=refresh_token \
+  -d client_id=CLIENT_ID \
+  -d refresh_token=dor_...
+```
+
+<Callout type="warn">
+  Each refresh token works once. Store the new one from every response. Presenting a refresh token
+  that was already used is treated as a leak, and revokes the user's grant.
+</Callout>
+
+## Ask for More Permissions
+
+If a token lacks a scope, the API answers `403` with:
+
+```
+WWW-Authenticate: Bearer error="insufficient_scope", scope="envelopes:send"
+```
+
+Send the user through the authorization endpoint again with the extra scope. MCP clients do this automatically when an MCP server passes the challenge on.
+
+## Validate Tokens in an MCP Server
+
+An MCP server receives tokens from MCP clients and must check that they were issued for it:
+
+```bash
+curl https://app.documenso.example/api/oauth/tokeninfo \
+  -H 'Authorization: Bearer doa_...'
+```
+
+```json
+{
+  "active": true,
+  "sub": "42",
+  "client_id": "CLIENT_ID",
+  "team_id": 7,
+  "scope": "envelopes:read",
+  "aud": "https://mcp.example.com/mcp",
+  "exp": 1790691049
+}
+```
+
+Refuse the token unless `active` is `true` and `aud` is your MCP server's URL. Inactive tokens get `401` with `{ "active": false }`.
+
+## Revoke a Token
+
+```bash
+curl -X POST https://app.documenso.example/api/oauth/revoke \
+  -d client_id=CLIENT_ID \
+  -d token=dor_...
+```
+
+Revoking either token revokes the user's whole grant. Users can also revoke access from **Settings → Security → Connected apps**, and access ends when they leave the team.
+
+## Errors
+
+OAuth endpoints answer with a JSON body and a `4xx` status:
+
+```json
+{ "error": "invalid_grant", "error_description": "The authorization code has expired." }
+```
+
+| Error                      | Common cause                                                            |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `invalid_request`          | Missing parameter, or PKCE not sent with `S256`                         |
+| `invalid_client`           | Unknown `client_id`, or wrong or missing client secret (HTTP 401)       |
+| `invalid_grant`            | Expired, reused or mismatched code or refresh token; user left the team |
+| `invalid_scope`            | A refresh asked for more than the user approved                         |
+| `invalid_target`           | `resource` is not an MCP server this instance allows                    |
+| `invalid_redirect_uri`     | Registration with a redirect URI that is not allowed                    |
+| `access_denied`            | The user clicked **Deny**                                               |
+
+## Limits
+
+| Limit                   | Value                                  |
+| ----------------------- | -------------------------------------- |
+| Authorization code      | 5 minutes after approval, single use   |
+| Access token            | 1 hour                                 |
+| Refresh token           | 30 days, single use, rotated           |
+| Registration            | 60 per hour per IP                     |
+| Authorization           | 120 per 15 minutes per IP              |
+| Token and revocation    | 300 per minute per IP                  |
+
+API calls made with OAuth tokens count towards the same [rate limits](/docs/developers/api/rate-limits) as API tokens.

@@ -2,6 +2,7 @@ import { getServerLimits } from '@documenso/ee/server-only/limits/server';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { sendDocument } from '@documenso/lib/server-only/document/send-document';
 import { getEnvelopeById } from '@documenso/lib/server-only/envelope/get-envelope-by-id';
+import { assertOAuthScope } from '@documenso/lib/server-only/oauth/get-oauth-access-token';
 import { createDocumentFromTemplate } from '@documenso/lib/server-only/template/create-document-from-template';
 import { putNormalizedPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
 import { formatSigningLink } from '@documenso/lib/utils/recipients';
@@ -39,6 +40,11 @@ export const useEnvelopeRoute = authenticatedProcedure
         folderId,
       },
     });
+
+    // Creating a draft needs `envelopes:write`, but sending it on creation is a send.
+    if (distributeDocument && ctx.metadata.oauthScopes) {
+      assertOAuthScope('envelopes:send', ctx.metadata.oauthScopes);
+    }
 
     const limits = await getServerLimits({ userId: user.id, teamId });
 

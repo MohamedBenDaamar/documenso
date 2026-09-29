@@ -68,11 +68,13 @@ model User {
 
   verificationTokens VerificationToken[]
   apiTokens          ApiToken[]
+  oauthGrants        OAuthGrant[]
+  oauthRequests      OAuthAuthorizationRequest[]
   securityAuditLogs  UserSecurityAuditLog[]
   webhooks           Webhook[]
   siteSettings       SiteSettings[]
   passkeys           Passkey[]
-  avatarImage        AvatarImage?           @relation(fields: [avatarImageId], references: [id], onDelete: SetNull)
+  avatarImage        AvatarImage?                @relation(fields: [avatarImageId], references: [id], onDelete: SetNull)
 
   @@index([email])
 }
@@ -231,6 +233,93 @@ model ApiToken {
   user       User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
   teamId     Int
   team       Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+/// An application registered through OAuth dynamic client registration (RFC 7591).
+/// PKCE is required for every client; a secret is issued only when the client asks for one.
+model OAuthClient {
+  id                      String   @id
+  name                    String
+  redirectUris            String[]
+  /// `none`, `client_secret_post` or `client_secret_basic`.
+  tokenEndpointAuthMethod String   @default("none")
+  secretHash              String?
+  createdAt               DateTime @default(now())
+
+  authorizationRequests OAuthAuthorizationRequest[]
+  grants                OAuthGrant[]
+}
+
+/// A pending or approved `/authorize` request. The consent page reads it by ID, so the
+/// parameters the user approves are the ones that were validated, not ones resent by the browser.
+model OAuthAuthorizationRequest {
+  id            String      @id
+  clientId      String
+  client        OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  redirectUri   String
+  scopes        String[]
+  state         String?
+  codeChallenge String
+  resource      String
+  expiresAt     DateTime
+  createdAt     DateTime    @default(now())
+
+  /// Set on approval. The code itself is only stored as a hash.
+  codeHash   String?   @unique
+  approvedAt DateTime?
+  userId     Int?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId     Int?
+  team       Team?     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  /// Set when the code is exchanged. A second exchange revokes the grant it created.
+  usedAt  DateTime?
+  grantId String?     @unique
+  grant   OAuthGrant? @relation(fields: [grantId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+}
+
+/// A user's consent for one client to act on one team. Revoking it invalidates every token issued under it.
+model OAuthGrant {
+  id         String      @id
+  clientId   String
+  client     OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId     Int
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId     Int
+  team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  scopes     String[]
+  resource   String
+  createdAt  DateTime    @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  tokens               OAuthToken[]
+  authorizationRequest OAuthAuthorizationRequest?
+
+  @@index([userId])
+  @@index([teamId])
+}
+
+enum OAuthTokenType {
+  ACCESS
+  REFRESH
+}
+
+model OAuthToken {
+  id        Int            @id @default(autoincrement())
+  type      OAuthTokenType
+  tokenHash String         @unique
+  grantId   String
+  grant     OAuthGrant     @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime       @default(now())
+
+  /// Refresh tokens are single use. Presenting a used one again revokes the whole grant.
+  usedAt DateTime?
+
+  @@index([grantId])
 }
 
 enum SubscriptionStatus {
@@ -1056,6 +1145,9 @@ model Team {
   apiTokens  ApiToken[]
   webhooks   Webhook[]
   teamGroups TeamGroup[]
+
+  oauthGrants   OAuthGrant[]
+  oauthRequests OAuthAuthorizationRequest[]
 
   organisationId String
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)

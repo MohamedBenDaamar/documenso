@@ -101,6 +101,21 @@ internal hosts, for example when delivering to a service on your own network:
 NEXT_PRIVATE_WEBHOOK_SSRF_BYPASS_HOSTS="hooks.internal.example,10.0.0.5"
 ```
 
+### OAuth Server
+
+| Variable                       | Default | Description                                                                         |
+| ------------------------------ | ------- | ----------------------------------------------------------------------------------- |
+| `NEXT_PRIVATE_OAUTH_RESOURCES` | -       | Comma-separated URLs of the MCP servers that OAuth applications may get tokens for |
+
+The OAuth server lets users connect AI assistants and other applications to a team without API
+tokens (see [OAuth Applications](/docs/developers/api/oauth)). It is disabled while this variable is
+empty. List each MCP server by the exact URL of its MCP endpoint; URLs must use `https`, except on
+`localhost`:
+
+```bash
+NEXT_PRIVATE_OAUTH_RESOURCES="https://mcp.example.com/mcp"
+```
+
 ---
 
 ## Email Configuration

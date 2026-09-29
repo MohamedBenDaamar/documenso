@@ -181,6 +181,24 @@ export default function SettingsSecurity({ loaderData }: Route.ComponentProps) {
           </Link>
         </Button>
       </Alert>
+
+      <Alert className="mt-6 flex flex-col justify-between p-6 sm:flex-row sm:items-center" variant="neutral">
+        <div className="mr-4 mb-4 sm:mb-0">
+          <AlertTitle>
+            <Trans>Connected apps</Trans>
+          </AlertTitle>
+
+          <AlertDescription className="mr-2">
+            <Trans>View and revoke the applications you allowed to act on your teams.</Trans>
+          </AlertDescription>
+        </div>
+
+        <Button asChild variant="outline" className="bg-background">
+          <Link to="/settings/security/connected-apps">
+            <Trans>Manage connected apps</Trans>
+          </Link>
+        </Button>
+      </Alert>
     </div>
   );
 }
