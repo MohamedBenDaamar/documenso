@@ -12722,6 +12722,10 @@ msgstr "Deze map bevat meerdere items. Verwijderen zorgt ervoor dat alle submapp
 msgid "This image is invalid, please upload a valid image file."
 msgstr ""
 
+#: apps/remix/app/routes/_unauthenticated+/_layout.tsx
+msgid "This instance runs a modified version of Documenso. <0>Source code</0>"
+msgstr ""
+
 #: apps/remix/app/components/general/envelope-editor/envelope-editor-settings-dialog.tsx
 #: packages/ui/primitives/template-flow/add-template-settings.tsx
 msgid "This is how the document will reach the recipients once the document is ready for signing."
