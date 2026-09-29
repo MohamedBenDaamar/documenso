@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { OAuthScope } from '../constants/oauth';
 
 import { getIpAddress } from './get-ip-address';
 
@@ -28,6 +29,13 @@ export type ApiRequestMetadata = {
    * If the request is not authenticated, the value will be `null`.
    */
   auth: 'api' | 'session' | null;
+
+  /**
+   * The scopes of the OAuth access token used for the request.
+   *
+   * `undefined` for API tokens and sessions, which are not limited by scope.
+   */
+  oauthScopes?: OAuthScope[];
 
   /**
    * The user that is performing the action.

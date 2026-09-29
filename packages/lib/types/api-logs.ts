@@ -18,6 +18,7 @@ export type BaseApiLog = Partial<RootApiLog> & {
   source: ApiRequestMetadata['source'];
   userId?: number | null;
   apiTokenId?: number | null;
+  oauthGrantId?: string | null;
 };
 
 /**

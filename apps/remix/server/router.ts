@@ -3,6 +3,7 @@ import { auth } from '@documenso/auth/server';
 import { csc } from '@documenso/ee/server-only/signing/csc/hono';
 import { jobsClient } from '@documenso/lib/jobs/client';
 import { LicenseClient } from '@documenso/lib/server-only/license/license-client';
+import { getOAuthServerMetadata, isOAuthServerEnabled } from '@documenso/lib/server-only/oauth/config';
 import { createRateLimitMiddleware } from '@documenso/lib/server-only/rate-limit/rate-limit-middleware';
 import {
   aiRateLimit,
@@ -27,6 +28,7 @@ import type { Logger } from 'pino';
 import { aiRoute } from './api/ai/route';
 import { downloadRoute } from './api/download/download';
 import { filesRoute } from './api/files/files';
+import { oauthRoute } from './api/oauth/route';
 import { type AppContext, appContext } from './context';
 import { appMiddleware } from './middleware';
 import { securityHeadersMiddleware } from './security-headers';
@@ -104,6 +106,19 @@ app.use('/api/v2-beta/*', apiV2RateLimitMiddleware);
 
 // Auth server.
 app.route('/api/auth', auth);
+
+// OAuth 2.1 authorization server for MCP clients. Off unless NEXT_PRIVATE_OAUTH_RESOURCES is set.
+// Note: RFC 8414 puts the metadata of an issuer with a path (a sub-path deployment) at
+// `/.well-known/oauth-authorization-server/<path>`, which is not handled here yet.
+app.route('/api/oauth', oauthRoute);
+app.use('/.well-known/oauth-authorization-server', cors());
+app.get('/.well-known/oauth-authorization-server', (c) => {
+  if (!isOAuthServerEnabled()) {
+    return c.json({ error: 'not_found' }, 404);
+  }
+
+  return c.json(getOAuthServerMetadata(), 200, { 'Cache-Control': 'public, max-age=3600' });
+});
 
 // Files route.
 app.use('/api/files/upload-pdf', fileRateLimitMiddleware);

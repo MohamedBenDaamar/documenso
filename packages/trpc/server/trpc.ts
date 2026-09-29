@@ -1,4 +1,9 @@
 import { AppError, genericErrorCodeToTrpcErrorCodeMap } from '@documenso/lib/errors/app-error';
+import {
+  assertOAuthScopeForProcedure,
+  getOAuthAccessToken,
+} from '@documenso/lib/server-only/oauth/get-oauth-access-token';
+import { isOAuthAccessToken } from '@documenso/lib/server-only/oauth/oauth-utils';
 import { getApiTokenByToken } from '@documenso/lib/server-only/public-api/get-api-token-by-token';
 import { assertUserNotDisabled } from '@documenso/lib/server-only/user/assert-user-not-disabled';
 import type { TrpcApiLog } from '@documenso/lib/types/api-logs';
@@ -68,6 +73,56 @@ const t = initTRPC
   });
 
 /**
+ * Resolves the bearer token of an API v2 request.
+ *
+ * API tokens act with the full rights of their user on their team. OAuth access tokens act for the
+ * user who approved them, on the team they chose, and only on the procedures their scopes allow
+ * (`OAUTH_API_PROCEDURE_SCOPES`).
+ */
+const resolveApiV2Token = async (token: string, procedurePath: string) => {
+  if (!isOAuthAccessToken(token)) {
+    const apiToken = await getApiTokenByToken({ token });
+
+    return {
+      user: apiToken.user,
+      teamId: apiToken.teamId,
+      apiTokenId: apiToken.id,
+      oauthGrantId: null,
+      oauthScopes: undefined,
+      auditUser: apiToken.team
+        ? {
+            id: null,
+            email: null,
+            name: apiToken.team.name,
+          }
+        : {
+            id: apiToken.user.id,
+            email: apiToken.user.email,
+            name: apiToken.user.name,
+          },
+    };
+  }
+
+  const oauthToken = await getOAuthAccessToken({ token });
+
+  assertOAuthScopeForProcedure(procedurePath, oauthToken.scopes);
+
+  return {
+    user: oauthToken.user,
+    teamId: oauthToken.teamId,
+    apiTokenId: null,
+    oauthGrantId: oauthToken.grantId,
+    oauthScopes: oauthToken.scopes,
+    // Unlike team API tokens, an OAuth grant belongs to one person, so audit logs name them.
+    auditUser: {
+      id: oauthToken.user.id,
+      email: oauthToken.user.email,
+      name: oauthToken.user.name,
+    },
+  };
+};
+
+/**
  * Middlewares
  */
 export const authenticatedMiddleware = t.middleware(async ({ ctx, next, path, meta }) => {
@@ -95,7 +150,7 @@ export const authenticatedMiddleware = t.middleware(async ({ ctx, next, path, me
       throw new Error('Token was not provided for authenticated middleware');
     }
 
-    const apiToken = await getApiTokenByToken({ token });
+    const apiToken = await resolveApiV2Token(token, path);
 
     // Reject API requests from a disabled account. The token may still be
     // present in the DB (e.g. before `disableUser` runs) so we enforce here.
@@ -105,7 +160,8 @@ export const authenticatedMiddleware = t.middleware(async ({ ctx, next, path, me
       ...baseLogAttributes,
       auth: 'api',
       userId: apiToken.user.id,
-      apiTokenId: apiToken.id,
+      apiTokenId: apiToken.apiTokenId,
+      oauthGrantId: apiToken.oauthGrantId,
     } satisfies TrpcApiLog);
 
     trpcApiV2Logger.info({
@@ -121,18 +177,9 @@ export const authenticatedMiddleware = t.middleware(async ({ ctx, next, path, me
         session: null,
         metadata: {
           ...ctx.metadata,
-          auditUser: apiToken.team
-            ? {
-                id: null,
-                email: null,
-                name: apiToken.team.name,
-              }
-            : {
-                id: apiToken.user.id,
-                email: apiToken.user.email,
-                name: apiToken.user.name,
-              },
+          auditUser: apiToken.auditUser,
           auth: 'api',
+          oauthScopes: apiToken.oauthScopes,
         } satisfies ApiRequestMetadata,
       },
     });
@@ -207,7 +254,7 @@ export const maybeAuthenticatedMiddleware = t.middleware(async ({ ctx, next, pat
       throw new Error('Token was not provided for authenticated middleware');
     }
 
-    const apiToken = await getApiTokenByToken({ token });
+    const apiToken = await resolveApiV2Token(token, path);
 
     // Reject API requests from a disabled account. Presenting an API token is
     // an explicit attempt to act under that account, so we don't downgrade to
@@ -220,7 +267,8 @@ export const maybeAuthenticatedMiddleware = t.middleware(async ({ ctx, next, pat
       ...baseLogAttributes,
       auth: 'api',
       userId: apiToken.user.id,
-      apiTokenId: apiToken.id,
+      apiTokenId: apiToken.apiTokenId,
+      oauthGrantId: apiToken.oauthGrantId,
     } satisfies TrpcApiLog);
 
     trpcApiV2Logger.info({
@@ -236,18 +284,9 @@ export const maybeAuthenticatedMiddleware = t.middleware(async ({ ctx, next, pat
         session: null,
         metadata: {
           ...ctx.metadata,
-          auditUser: apiToken.team
-            ? {
-                id: null,
-                email: null,
-                name: apiToken.team.name,
-              }
-            : {
-                id: apiToken.user.id,
-                email: apiToken.user.email,
-                name: apiToken.user.name,
-              },
+          auditUser: apiToken.auditUser,
           auth: 'api',
+          oauthScopes: apiToken.oauthScopes,
         } satisfies ApiRequestMetadata,
       },
     });
